@@ -6,14 +6,14 @@ import timeit
 import operator
 import pandas as pd
 
-#Function to call bioBERT API and receive JSON response from the model 
+#Function to call bioBERT API 
 def query_raw(text, url="bioBERT API URL"):
     body_data = {"param": json.dumps({"text": text})}
 
     return requests.post(url, data=body_data).json()
 
 time_dict = {}
-#Solr URL request to fetch all records as JSON response
+#Fetch 5 documents from the solr server
 connection = urllib.request.urlopen('http://solr-serverURL/solr/bi_core/select?fl=id,sem_title,detailed_*,brief_*,drug_*,eligibility_*,sem_record_type,&fq=sem_record_type:ClinicalTrials.gov\%20Record&q=*:*&rows=5&wt=json')
 response = json.load(connection)
 
@@ -23,12 +23,12 @@ for document in response['response']['docs']:
     output_dict = {}
     denotations_array = []
     denotation_dict ={}
+    
     with open(str(trial_id)+'.json', 'w') as file:
-
-                
+     
         output_dict['id'] = trial_id
 
-        #Checks to ensure field exists in current document and is not empty
+        #Check for the presence of sem_title field in the document
         if('sem_title' in document and len(document['sem_title'])!=0):
             sem_title = clean(document['sem_title'],no_line_breaks=True)
 
@@ -37,6 +37,7 @@ for document in response['response']['docs']:
 
         output_dict['sem_title'] = sem_title
 
+        #Check for the presence of brief_summary field in the document
         if('brief_summary' in document and len(document['brief_summary'])!=0):
             #Cleaning text for breaks and string typecasting
             brief_summary = str(clean(document['brief_summary'],no_line_breaks=True))
@@ -44,7 +45,7 @@ for document in response['response']['docs']:
             #Fetching denotations for the text
             brief_summary_entities = query_raw(brief_summary)
             
-                
+            #Iterating over the denotations to extract the object text             
             for denotation in brief_summary_entities['denotations']:
                 
                 denotation_dict['id'] = denotation['id']
@@ -55,10 +56,7 @@ for document in response['response']['docs']:
 
                 denotation_dict ={}
 
-
-
             brief_summary_entities = denotations_array.copy()
-
 
         else:
             brief_summary = 'Not Available'
@@ -73,8 +71,8 @@ for document in response['response']['docs']:
         if('detailed_description' in document and len(document['detailed_description'])!=0):
             detailed_description = clean(document['detailed_description'],no_line_breaks=True)
             detailed_description_entities = query_raw(detailed_description)
-            
 
+            #Iterating over the denotations to extract the object text
             for denotation in detailed_description_entities['denotations']:
                 denotation_dict['id'] = denotation['id']
                 denotation_dict['span'] = denotation['span']
@@ -84,35 +82,25 @@ for document in response['response']['docs']:
 
                 denotation_dict ={}
 
-
-
             detailed_description_entities = denotations_array.copy()
 
             output_dict['detailed_description'] = detailed_description
             output_dict['detailed_description_entities'] = detailed_description_entities
 
-        
-
-
-            
-
         else:
             detailed_description = 'Not Available'
             detailed_description_entities = 'Not Available'
-
 
         output_dict['detailed_description'] = detailed_description
         output_dict['detailed_description_entities'] = detailed_description_entities
 
         denotations_array = []
-
-
+        #Check for the presence of eligibility_criteria field in the document
         if('eligibility_criteria' in document and len(document['eligibility_criteria'])!=0):
             
             eligibility_criteria = clean(document['eligibility_criteria'],no_line_breaks=True)
             eligibility_criteria_entities = query_raw(eligibility_criteria)
             
-
             for denotation in eligibility_criteria_entities['denotations']:
                 denotation_dict['id'] = denotation['id']
                 denotation_dict['span'] = denotation['span']
@@ -122,8 +110,6 @@ for document in response['response']['docs']:
 
                 denotation_dict ={}
 
-
-
             eligibility_criteria_entities = denotations_array.copy()
 
             output_dict['detailed_description'] = eligibility_criteria
@@ -131,23 +117,16 @@ for document in response['response']['docs']:
 
             denotations_array = []
 
-
-            
-
         else:
             eligibility_criteria = 'Not Available'
             eligibility_criteria_entities = 'Not Available'
-
 
         output_dict['eligibility_criteria'] = eligibility_criteria
         output_dict['eligibility_criteria_entities'] = eligibility_criteria_entities
 
         denotations_array = []
         denotations_array = []
-
-            
-
-            
+         
         json.dump(output_dict, file)
     elapsed = timeit.default_timer() - start_time
     time_dict.update({str(trial_id) : elapsed})
